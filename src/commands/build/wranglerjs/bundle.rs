@@ -7,7 +7,7 @@ use std::path::Path;
 
 use log::info;
 
-use crate::commands::build::wranglerjs::output::WranglerjsOutput;
+use crate::commands::build::wranglerjs::output::{KvNamespaces, WranglerjsOutput};
 
 // Directory where we should write the {Bundle}. It represents the built
 // artifact.
@@ -48,7 +48,8 @@ impl Bundle {
         script_file.write_all(script.as_bytes())?;
 
         let mut metadata_file = File::create(self.metadata_path())?;
-        metadata_file.write_all(create_metadata(self).as_bytes())?;
+        metadata_file
+            .write_all(create_metadata(self, wranglerjs_output.kv_namespaces).as_bytes())?;
 
         // cleanup {Webpack} dist, if specified.
         if let Some(dist_to_clean) = wranglerjs_output.dist_to_clean {
@@ -106,8 +107,12 @@ pub fn create_prologue() -> String {
 }
 
 // This metadata describe the bindings on the Worker.
-fn create_metadata(bundle: &Bundle) -> String {
-    info!("create metadata; wasm={}", bundle.has_wasm());
+fn create_metadata(bundle: &Bundle, kv_namespaces: Vec<KvNamespaces>) -> String {
+    info!(
+        "create metadata; wasm={}, kv_namespaces={}",
+        bundle.has_wasm(),
+        kv_namespaces.len()
+    );
     if bundle.has_wasm() {
         format!(
             r#"

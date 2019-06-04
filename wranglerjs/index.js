@@ -52,6 +52,25 @@ fetchCompileWasmTemplatePlugin.fn = function(compilation) {
   plugin.apply(mainTemplate);
 };
 
+const bundle = {
+  wasm: null,
+  script: "",
+  dist_to_clean: fullConfig.output.path,
+  errors: [],
+  kv_namespaces: []
+};
+
+fullConfig.module.rules.push({
+  test: /\.js$/,
+  enforce: "pre",
+  loader: join(__dirname, "loader.js"),
+  options: {
+    onKvStorageBinding(local_binding, name) {
+      bundle.kv_namespaces.push({ local_binding, name });
+    }
+  }
+});
+
 compiler.run((err, stats) => {
   if (err) {
     throw err;
@@ -59,12 +78,7 @@ compiler.run((err, stats) => {
 
   const assets = stats.compilation.assets;
   const jsonStats = stats.toJson();
-  const bundle = {
-    wasm: null,
-    script: "",
-    dist_to_clean: fullConfig.output.path,
-    errors: jsonStats.errors
-  };
+  bundle.errors = jsonStats.errors;
 
   const wasmModuleAsset = Object.keys(assets).find(filterByExtension("wasm"));
   const jsAssets = Object.keys(assets).filter(filterByExtension("js"));

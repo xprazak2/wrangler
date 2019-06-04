@@ -1,5 +1,11 @@
 use serde::Deserialize;
 
+#[derive(Deserialize, Debug)]
+pub struct KvNamespaces {
+    pub local_binding: String,
+    pub name: String,
+}
+
 // This structure represents the communication between {wranglerjs} and
 // {wrangler}. It is send back after {wranglerjs} completion.
 // FIXME(sven): make this private
@@ -13,6 +19,8 @@ pub struct WranglerjsOutput {
     pub dist_to_clean: Option<String>,
     // Errors emited by {wranglerjs}, if any
     pub errors: Vec<String>,
+    // list of KV namespaces detected by {wranglerjs}.
+    pub kv_namespaces: Vec<KvNamespaces>,
 }
 
 impl WranglerjsOutput {
