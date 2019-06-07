@@ -4,6 +4,7 @@
   "author": "Sven Sauleau <sven@sauleau.com>",
   "license": "MIT",
   "dependencies": {
-    "webpack": "^4.29.6"
+    "memory-fs": "^0.4.1",
+    "webpack": "v5.0.0-alpha.15"
   }
 }
