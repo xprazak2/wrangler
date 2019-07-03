@@ -22,7 +22,7 @@ Within 3 days, any incoming issue should be triaged. Triage involves:
 
 - label all issues coming from non-team members with User Report
 - labelling the category of the issue: Feature, External Bug, Bug, Maintenance, Docs
-- optionally labelling a secondary category: Webpack, Routes, Workers Runtime, Refactor
+- optionally labelling a secondary category: webpack, Routes, Workers Runtime, Refactor
 - labelling the status of the issue: Need More Info, Needs Repro, Needs Design, PR Welcome
 - optionally labelling other calls to action: Help Wanted, Question
 
