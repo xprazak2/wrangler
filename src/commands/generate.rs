@@ -1,4 +1,5 @@
 use crate::settings::project::{Project, ProjectType};
+use crate::settings::global_user::GlobalUser;
 use crate::{commands, install};
 use std::path::PathBuf;
 use std::process::Command;
@@ -18,6 +19,36 @@ pub fn generate(name: &str, template: &str, pt: Option<ProjectType>) -> Result<(
     commands::run(command, &command_name)?;
     Project::generate(name.to_string(), pt, false)?;
     Ok(())
+}
+
+pub fn write_project_name(global_user: &GlobalUser) -> Result<(), failure::Error> {
+    let new_project = generate_project_name(global_user);
+
+    let mut new_user = global_user.clone();
+    new_user.next_default_project = new_project;
+    commands::config::write_global_config(&new_user)?;
+    Ok(())
+}
+
+fn generate_project_name(global_user: &GlobalUser) -> String {
+    let current_project = &global_user.next_default_project;
+    let mut new_project: Vec<&str> = current_project.split("-").collect();
+
+    let last = new_project[new_project.len() - 1];
+
+    let next_num = match last.parse::<i32>() {
+        Ok(val) => {
+            new_project.pop();
+            val + 1
+        }
+        Err(_) => {
+            1
+        }
+    };
+
+    let mut new_project: Vec<String> = new_project.into_iter().map(|item| item.to_string()).collect();
+    new_project.push(next_num.to_string());
+    new_project.join("-")
 }
 
 fn command(name: &str, binary_path: PathBuf, args: &[&str], project_type: &ProjectType) -> Command {

@@ -166,7 +166,9 @@ fn main() -> Result<(), failure::Error> {
 
         commands::global_config(email, api_key)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
-        let name = matches.value_of("name").unwrap_or("worker");
+        let global_user = settings::global_user::GlobalUser::new()?;
+        let next_project_name = &global_user.next_default_project;
+        let name = matches.value_of("name").unwrap_or(next_project_name);
         let project_type = match matches.value_of("type") {
             Some(s) => Some(ProjectType::from_str(&s.to_lowercase())?),
             None => None,
@@ -186,6 +188,9 @@ fn main() -> Result<(), failure::Error> {
             template, name
         );
         commands::generate(name, template, project_type)?;
+        if next_project_name == name {
+            commands::generate::write_project_name(&global_user)?;
+        }
     } else if let Some(matches) = matches.subcommand_matches("init") {
         let name = matches.value_of("name");
         let project_type = match matches.value_of("type") {
