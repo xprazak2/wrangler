@@ -1,12 +1,13 @@
 use std::env;
 use std::path::{Path, PathBuf};
+use std::convert::TryFrom;
 
 use cloudflare::framework::auth::Credentials;
 use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::terminal::emoji;
-use config::{Config, Environment, File};
+use config::{Config, Environment, File, ConfigError};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
@@ -15,9 +16,26 @@ pub enum GlobalUser {
     GlobalKeyAuth { email: String, api_key: String },
 }
 
-impl GlobalUser {
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct GlobalConfig {
+    #[serde(flatten)]
+    pub global_user: GlobalUser,
+    pub next_default_project: String,
+}
+
+impl GlobalConfig {
+    pub fn default_project_name() -> String {
+        "worker".to_string()
+    }
+
     pub fn new() -> Result<Self, failure::Error> {
         get_global_config()
+    }
+}
+
+impl GlobalUser {
+    pub fn new() -> Result<Self, failure::Error> {
+        get_global_user()
     }
 }
 
@@ -33,7 +51,55 @@ impl From<GlobalUser> for Credentials {
     }
 }
 
-fn get_global_config() -> Result<GlobalUser, failure::Error> {
+impl TryFrom<config::Config> for GlobalConfig {
+    type Error = config::ConfigError;
+
+    fn try_from(conf: config::Config) -> Result<Self, Self::Error> {
+
+        let next_default_project = match conf.get_str("next_default_project") {
+            Ok(val) => {
+                if val.is_empty() {
+                    GlobalConfig::default_project_name()
+                } else {
+                    val
+                }
+            },
+            Err(_) => GlobalConfig::default_project_name(),
+        };
+
+        match conf.get("api_key") {
+            Ok(key) => {
+                let email = conf.get("email")?;
+                Ok(GlobalConfig {
+                    next_default_project: next_default_project,
+                    global_user: GlobalUser::GlobalKeyAuth {
+                        api_key: key,
+                        email: email,
+                    }
+                })
+            },
+            Err(_) => {
+                match conf.get("api_token") {
+                    Ok(token) => {
+                        Ok(GlobalConfig {
+                            next_default_project: next_default_project,
+                            global_user: GlobalUser::TokenAuth {
+                                api_token: token
+                            }
+                        })
+                    },
+                    Err(_) => Err(ConfigError::Message("No api_key or api_token found in global config. Have you run 'wrangler config'?".to_string()))
+                }
+            }
+        }
+    }
+}
+
+fn get_global_user() -> Result<GlobalUser, failure::Error> {
+    get_global_config().and_then(|config| Ok(config.global_user))
+}
+
+fn get_global_config() -> Result<GlobalConfig, failure::Error> {
     let mut s = Config::new();
 
     let config_path = get_global_config_dir()
@@ -57,8 +123,8 @@ fn get_global_config() -> Result<GlobalUser, failure::Error> {
     // envs are: CF_EMAIL, CF_API_KEY and CF_API_TOKEN
     s.merge(Environment::with_prefix("CF"))?;
 
-    let global_user: Result<GlobalUser, config::ConfigError> = s.try_into();
-    match global_user {
+    let global_config: Result<GlobalConfig, config::ConfigError> = GlobalConfig::try_from(s);
+    match global_config {
         Ok(s) => Ok(s),
         Err(e) => {
             let msg = format!(

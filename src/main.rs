@@ -15,7 +15,7 @@ use wrangler::commands;
 use wrangler::commands::kv::key::KVMetaData;
 use wrangler::installer;
 use wrangler::settings;
-use wrangler::settings::global_user::GlobalUser;
+use wrangler::settings::global_user::{GlobalUser, GlobalConfig};
 use wrangler::settings::target::TargetType;
 use wrangler::terminal::emoji;
 use wrangler::terminal::message;
@@ -437,9 +437,16 @@ fn run() -> Result<(), failure::Error> {
 
         let verify = !matches.is_present("no-verify");
 
-        commands::global_config(&user, verify)?;
+        let config = GlobalConfig {
+            global_user: user,
+            next_default_project: GlobalConfig::default_project_name(),
+        };
+
+        commands::global_config(&config, verify)?;
     } else if let Some(matches) = matches.subcommand_matches("generate") {
-        let name = matches.value_of("name").unwrap_or("worker");
+        let global_config = settings::global_user::GlobalConfig::new()?;
+        let next_project_name = &global_config.next_default_project;
+        let name = matches.value_of("name").unwrap_or(next_project_name);
         let site = matches.is_present("site");
         let template = matches.value_of("template");
         let mut target_type = None;
@@ -471,6 +478,9 @@ fn run() -> Result<(), failure::Error> {
         );
 
         commands::generate(name, template, target_type, site)?;
+        if next_project_name == name {
+            commands::generate::write_project_name(&global_config)?;
+        }
     } else if let Some(matches) = matches.subcommand_matches("init") {
         let name = matches.value_of("name");
         let site = matches.is_present("site");

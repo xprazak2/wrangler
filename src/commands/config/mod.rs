@@ -6,7 +6,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 use crate::http;
-use crate::settings::global_user::{get_global_config_dir, GlobalUser};
+use crate::settings::global_user::{get_global_config_dir, GlobalUser, GlobalConfig};
 
 use cloudflare::endpoints::user::{GetUserDetails, GetUserTokenStatus};
 use cloudflare::framework::apiclient::ApiClient;
@@ -21,13 +21,24 @@ pub fn set_file_mode(file: &PathBuf) {
         .expect("could not set permissions on file");
 }
 
-pub fn global_config(user: &GlobalUser, verify: bool) -> Result<(), failure::Error> {
+pub fn global_config(config: &GlobalConfig, verify: bool) -> Result<(), failure::Error> {
     if verify {
         message::info("Validating credentials...");
-        validate_credentials(user)?;
+        validate_credentials(&config.global_user)?;
     }
 
-    let toml = toml::to_string(&user)?;
+    let config_path = write_global_config(&config)?;
+
+    message::success(&format!(
+        "Successfully configured. You can find your configuration file at: {}",
+        &config_path
+    ));
+
+    Ok(())
+}
+
+pub fn write_global_config(global_config: &GlobalConfig) -> Result<String, ::failure::Error> {
+    let toml = toml::to_string(&global_config)?;
 
     let config_dir = get_global_config_dir().expect("could not find global config directory");
     fs::create_dir_all(&config_dir)?;
@@ -39,12 +50,7 @@ pub fn global_config(user: &GlobalUser, verify: bool) -> Result<(), failure::Err
     #[cfg(not(target_os = "windows"))]
     set_file_mode(&config_file);
 
-    message::success(&format!(
-        "Successfully configured. You can find your configuration file at: {}",
-        &config_file.to_string_lossy()
-    ));
-
-    Ok(())
+    Ok(config_file.to_string_lossy().to_string())
 }
 
 // validate_credentials() checks the /user/tokens/verify endpoint (for API token)
